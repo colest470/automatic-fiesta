@@ -6,7 +6,9 @@ import (
 	"log"
 	"os"
 	"sync"
-	"io"
+	//"io"
+
+	"crawler/handlers"
 )
 
 type Queued struct {
@@ -17,7 +19,6 @@ type Queued struct {
 }
 
 type CrawledSet struct {
-	
 	mu sync.Mutex
 }
 
@@ -25,6 +26,7 @@ var (
 	doOnce sync.Once
 	existentFile *os.File
 	err error
+	FirstLink string
 )
 
 func hashUrl(url string) uint64 {
@@ -52,20 +54,27 @@ func main() {
 	})
 	defer existentFile.Close()
 
-	insertTruth := insertIntoFile("https://google.com")
-	if !insertTruth {
-		log.Fatalf("Error inserting into the file")
+	FirstLink = "https://example.com"
+
+	_, err := handlers.ExtractLinks(FirstLink)
+	if err != nil {
+		log.Fatal("Error trying to fetch/extrat link:", FirstLink)
+		return
 	}
+	// insertTruth := insertIntoFile(FirstLink) after finishing, put the links in a txt file
+	// if !insertTruth {
+	// 	log.Fatalf("Error inserting into the file")
+	// }
 
 	// Need to seek to beginning to read what we just wrote
-	_, err = existentFile.Seek(0, 0)
-	if err != nil {
-		log.Fatal("Error seeking file:", err)
-	}
+	// _, err = existentFile.Seek(0, 0)
+	// if err != nil {
+	// 	log.Fatal("Error seeking file:", err)
+	// }
 
-	content, err := io.ReadAll(existentFile)
-	if err != nil {
-		log.Fatal("Error reading file contents:", err)
-	}
-	fmt.Println(string(content))
+	// content, err := io.ReadAll(existentFile)
+	// if err != nil {
+	// 	log.Fatal("Error reading file contents:", err)
+	// }
+	// fmt.Println(string(content))
 }
