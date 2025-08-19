@@ -1,64 +1,86 @@
 package handlers
 
-// import (
-// 	"golang.org/x/net/html"
-// )
+import (
+	"errors"
+	"fmt"
+	"net/url"
 
-// type Link struct {
-// 	URL     string
-// 	IsValid bool
-// 	Error   error
-// }
+	"golang.org/x/net/html"
+)
 
-// func TraversePageContent() { // not sure what to put
-// 	var traverse func(*html.Node)
-// 	traverse = func(n *html.Node) {
-// 		if n.Type == html.ElementNode && n.Data == "a" {
-// 			for _, a := range n.Attr {
-// 				if a.Key == "href" {
-// 					href := a.Val
-// 					link := Link{URL: href}
+type Link struct {
+	URL     string
+	IsValid bool
+	Error   error
+}
 
-// 					// 1. Parse the href attribute
-// 					parsedURL, parseErr := url.Parse(href)
-// 					if parseErr != nil {
-// 						link.IsValid = false
-// 						link.Error = fmt.Errorf("URL parsing error: %w", parseErr)
-// 						foundLinks = append(foundLinks, link)
-// 						continue // Skip to next attribute/node if parsing fails
-// 					}
+func TraversePageContent(doc *html.Node, baseURL *url.URL) {
+	var traverse func(*html.Node)
+	traverse = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "a" {
+			for _, a := range n.Attr {
+				if a.Key == "href" {
+					href := a.Val
+					link := Link{URL: href}
 
-// 					// 2. Resolve relative URLs to absolute URLs
-// 					resolvedURL := baseURL.ResolveReference(parsedURL)
-// 					link.URL = resolvedURL.String() // Update URL to its absolute form
+					parsedURL, parseErr := url.Parse(href)
+					if parseErr != nil {
+						link.IsValid = false
+						link.Error = fmt.Errorf("URL parsing error: %w", parseErr)
+						continue
+					}
 
-// 					// 3. Validate the resolved URL
-// 					// Check for valid scheme (http/https)
-// 					if resolvedURL.Scheme == "http" || resolvedURL.Scheme == "https" {
-// 						// Further checks: ensure host is not empty, etc.
-// 						if resolvedURL.Host != "" {
-// 							link.IsValid = true
-// 						} else {
-// 							link.IsValid = false
-// 							link.Error = errors.New("URL has no host (e.g., mailto:, #anchor)")
-// 						}
-// 					} else {
-// 						link.IsValid = false
-// 						link.Error = fmt.Errorf("unsupported scheme: %s", resolvedURL.Scheme)
-// 					}
+					resolvedURL := baseURL.ResolveReference(parsedURL)
+					link.URL = resolvedURL.String()
 
-// 					foundLinks = append(foundLinks, link)
-// 					break // Found href, move to next <a> tag
-// 				}
-// 			}
-// 		}
-// 		// Recursively call for child nodes
-// 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-// 			traverse(c)
-// 		}
-		
-// 		traverse(doc) // Start the traversal from the root of the document
-// 		return foundLinks, nil
-// 	}
+					if resolvedURL.Scheme == "http" || resolvedURL.Scheme == "https" {
+						if resolvedURL.Host != "" {
+							link.IsValid = true
+						} else {
+							link.IsValid = false
+							link.Error = errors.New("URL has no host (e.g., mailto:, #anchor)")
+							continue
+						}
+					} else {
+						link.IsValid = false
+						link.Error = fmt.Errorf("unsupported scheme: %s", resolvedURL.Scheme)
+						continue
+					}
 
-// }
+					if contains(ValidLinks, link.URL) {
+						continue
+					}
+
+					ValidLinks = append(ValidLinks, link.URL)
+
+					_, err := ExtractLinks(link.URL)
+					if err != nil {
+						fmt.Printf("Failed to crawl %s: %v\n", link.URL, err)
+					}
+				}
+			}
+		}
+
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			traverse(c)
+		}
+	}
+
+	traverse(doc)
+
+	fmt.Println("Traversed links:", ValidLinks)
+}
+
+
+func contains(slice []string, item string)  bool {
+	for _, v := range slice {
+		if v == item {
+			return true
+		}
+	}
+	return false
+}
+
+func FirstPageContents(url string) { // logs headers only and its contents 
+
+}
