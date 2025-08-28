@@ -1,110 +1,44 @@
 package main
 
 import (
-	"encoding/json"
+	"crawler/middlewares"
 	"fmt"
 	"log"
-	"net/http"
-	"net/url"
 	"os"
-	"io"
+	"sync"
+
+	"github.com/joho/godotenv"
 )
 
-type GoogleSearchResult struct {
-	Items []struct {
-		Title string `json:"title"`
-		Link  string `json:"link"`
-	} `json:"items"`
-	Error *GoogleAPIError `json:"error,omitempty"`
-}
-
-type GoogleAPIError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
 func main() {
-	apiKey := os.Getenv("API_KEY")
+	var doOnce sync.Once
+
+	doOnce.Do(func() {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatalf("Error loading .env file")
+		}
+	})
+
+	apiKey := os.Getenv("GOOGLE_API_KEY")
 	if apiKey == "" {
 		log.Fatal("GOOGLE_API_KEY environment variable not set")
 	}
 
-	searchEngineID := os.Getenv("CLIENT_ID")
+	searchEngineID := os.Getenv("GOOGLE_SEARCH_ENGINE_ID")
 	if searchEngineID == "" {
 		log.Fatal("GOOGLE_SEARCH_ENGINE_ID environment variable not set")
 	}
 
-	contents, err := getFirstSearchResult(apiKey, searchEngineID, "how to cook pilau")
+	parsedURL, err := middlewares.ParseUrl(apiKey, searchEngineID, "how to cook pilau")
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
 
-	fmt.Println("Successfully fetched contents of first result:")
-	fmt.Println(contents[:min(1000, len(contents))]) // Print first 1000 chars
+	//fmt.Println("Successfully fetched contents of first result:")
+	//fmt.Println(contents[:min(1000, len(contents))]) // Print first 1000 chars
+	fmt.Println("Parsed URL is: ", parsedURL)
 }
-
-func getFirstSearchResult(apiKey, searchEngineID, query string) (string, error) {
-	baseURL := "https://www.googleapis.com/customsearch/v1"
-	params := url.Values{}
-	params.Add("key", apiKey)
-	params.Add("cx", searchEngineID)
-	params.Add("q", query)
-	params.Add("num", "1")
-
-	apiURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())
-
-	resp, err := http.Get(apiURL)
-	if err != nil {
-		return "", fmt.Errorf("API request failed: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		var apiError GoogleAPIError
-		if err := json.NewDecoder(resp.Body).Decode(&apiError); err == nil && apiError.Message != "" {
-			return "", fmt.Errorf("API error: %s (code %d)", apiError.Message, apiError.Code)
-		}
-		return "", fmt.Errorf("API returned status %d", resp.StatusCode)
-	}
-
-	var result GoogleSearchResult
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("failed to decode response: %v", err)
-	}
-
-	if result.Error != nil {
-		return "", fmt.Errorf("API error: %s (code %d)", result.Error.Message, result.Error.Code)
-	}
-
-	if len(result.Items) == 0 {
-		return "", fmt.Errorf("no results found")
-	}
-
-	return fetchPageContent(result.Items[0].Link)
-}
-
-func fetchPageContent(url string) (string, error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch page: %v", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response: %v", err)
-	}
-
-	return string(body), nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 
 // package main
 

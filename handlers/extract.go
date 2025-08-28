@@ -1,18 +1,32 @@
 package handlers
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
-	// "bytes"
 
 	"golang.org/x/net/html"
 )
 
-var ValidLinks []string // links in the website as <a href="google.com">Google</a>
 
-func ExtractLinks(urlString string) (bool, error) { // checks if links are valid
-	fmt.Println("Fetching", urlString)
+type GoogleSearchResult struct {
+	Items []struct {
+		Title string `json:"title"`
+		Link  string `json:"link"`
+	} `json:"items"`
+	Error *GoogleAPIError `json:"error,omitempty"`
+}
+
+type GoogleAPIError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+var ValidLinks []string
+
+func ExtractLinks(urlString string) (bool, error) {
+	fmt.Println("Fetching...", urlString)
 
 	resp, err := http.Get(urlString)
 	if err != nil {
@@ -21,7 +35,11 @@ func ExtractLinks(urlString string) (bool, error) { // checks if links are valid
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return false, fmt.Errorf("Link not ok!", resp.Status)
+		var  apiError GoogleAPIError
+		if err := json.NewDecoder(resp.Body).Decode(&apiError); err == nil && apiError.Message != "" {
+			return false, fmt.Errorf("API error: %s (code %d)", apiError.Message, apiError.Code)
+		}
+		return false, fmt.Errorf("Link not ok!", resp.StatusCode)
 	}
 
 	doc, err := html.Parse(resp.Body)
@@ -31,16 +49,26 @@ func ExtractLinks(urlString string) (bool, error) { // checks if links are valid
 
 	fmt.Println("Link", urlString, "valid and can be crawled")
 
-	// var buf bytes.Buffer
-	// html.Render(&buf, doc)
-	// fmt.Println(buf.String()) // contets of the html
+	var buf bytes.Buffer
+	html.Render(&buf, doc)
+	fmt.Println(buf.String()) // contets of the html
 
-	baseUrl, err := url.Parse(urlString)
-	if err != nil {
-		return false, fmt.Errorf("Error parsing the link!", err)
+	var result GoogleSearchResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return false, fmt.Errorf("failed to decode response: %v", err)
 	}
 
-	TraversePageContent(doc, baseUrl)
+	if result.Error != nil {
+		return false, fmt.Errorf("API error: %s (code %d)", result.Error.Message, result.Error.Code)
+	}
+
+	if len(result.Items) == 0 {
+		return false, fmt.Errorf("no results found")
+	}
+
+	fmt.Println("Google result is:", result)
+
+	TraversePageContent(result.Items[0].Link)
 
 	ValidLinks = append(ValidLinks, urlString);
 
