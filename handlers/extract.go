@@ -1,12 +1,15 @@
 package handlers
 
 import (
-	"bytes"
+	// "bytes"
 	"encoding/json"
 	"fmt"
-	"net/http"
+	"io"
+	"log"
 
-	"golang.org/x/net/html"
+	// "log"
+	"net/http"
+	// "golang.org/x/net/html"
 )
 
 
@@ -34,27 +37,39 @@ func ExtractLinks(urlString string) (bool, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		var  apiError GoogleAPIError
-		if err := json.NewDecoder(resp.Body).Decode(&apiError); err == nil && apiError.Message != "" {
-			return false, fmt.Errorf("API error: %s (code %d)", apiError.Message, apiError.Code)
-		}
-		return false, fmt.Errorf("Link not ok!", resp.StatusCode)
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, fmt.Errorf("failed to read response body: %v", err)
 	}
 
-	doc, err := html.Parse(resp.Body)
-	if err != nil {
-		return false, fmt.Errorf("Error parsing the html document!", err)
+	if resp.StatusCode != http.StatusOK {
+		var apiError GoogleAPIError
+		if err := json.Unmarshal(bodyBytes, &apiError); err == nil && apiError.Message != "" {
+			return false, fmt.Errorf("API error: %s (code %d)", apiError.Message, apiError.Code)
+		}
+		return false, fmt.Errorf("Link not ok! Status: %d", resp.StatusCode)
 	}
+
+	// doc, err := html.Parse(bytes.NewReader(bodyBytes))
+	// if err != nil {
+	// 	return false, fmt.Errorf("Error parsing the html document: %v", err)
+	// }
 
 	fmt.Println("Link", urlString, "valid and can be crawled")
 
-	var buf bytes.Buffer
-	html.Render(&buf, doc)
-	fmt.Println(buf.String()) // contets of the html
+	// Render HTML (optional - for debugging)
+	// var buf bytes.Buffer
+	// html.Render(&buf, doc)
+	// fmt.Println("HTML content:", buf.String())
+
+	// pageContent, err := TraversePageContent(urlString)
+	// if err != nil {
+	// 	log.Fatalf("Error crawling to search page content")
+	// }
+	// fmt.Println("This is the search page data:", pageContent)
 
 	var result GoogleSearchResult
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(bodyBytes, &result); err != nil {
 		return false, fmt.Errorf("failed to decode response: %v", err)
 	}
 
@@ -66,11 +81,30 @@ func ExtractLinks(urlString string) (bool, error) {
 		return false, fmt.Errorf("no results found")
 	}
 
+	var ResultContent string
+
+	for _, item := range result.Items {
+		fmt.Printf("Checking app link: %s\n", item.Link)
+		
+		if !SkipAppLinks(item.Link) {
+			fmt.Printf("Found non-app link: %s\n", item.Link)
+			pageContent, err := TraversePageContent(item.Link)
+			if err != nil {
+				log.Fatalf("Error reading link")
+			}
+			ValidLinks = append(ValidLinks, item.Link)
+
+			ResultContent = Crawl(pageContent)
+			
+			fmt.Println("Final result is", ResultContent)
+		} else {
+			fmt.Printf("Skipping app link: %s\n", item.Link) // skip then go next link which i cant see in the slice
+		}
+	}
+
+	fmt.Printf("\n\n")
+
+
 	fmt.Println("Google result is:", result)
-
-	TraversePageContent(result.Items[0].Link)
-
-	ValidLinks = append(ValidLinks, urlString);
-
 	return true, nil
 }

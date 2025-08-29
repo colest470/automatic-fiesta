@@ -30,7 +30,7 @@ func main() {
 		log.Fatal("GOOGLE_SEARCH_ENGINE_ID environment variable not set")
 	}
 
-	parsedURL, err := middlewares.ParseUrl(apiKey, searchEngineID, "how to cook pilau")
+	parsedURL, err := middlewares.ParseUrl(apiKey, searchEngineID, "Chris Hemsworth wiki")
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
