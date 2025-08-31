@@ -1,23 +1,46 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 )
 
-func TraversePageContent(url string) (string, error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch page: %s : %v", url, err)
-	}
-	defer resp.Body.Close()
+func TraversePageContent(ctx context.Context, url string) (string, error) {
+    req, err := http.NewRequest("GET", url, nil)
+    if err != nil {
+        return "", fmt.Errorf("failed to create request: %v", err)
+    }
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("Failed to read response: %v", err)
-	}
-	return string(body), nil
+    SetBrowserHeaders(req)
+
+	
+    client := &http.Client{}
+
+    resp, err := client.Do(req)
+    if err != nil {
+        return "", fmt.Errorf("failed to fetch page: %s : %v", url, err)
+    }
+    defer resp.Body.Close() 
+
+    if resp.StatusCode != http.StatusOK {
+        return "", fmt.Errorf("request failed with status: %s", resp.Status)
+    }
+
+    body, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return "", fmt.Errorf("failed to read response: %v", err)
+    }
+
+    return string(body), nil
+}
+
+func SetBrowserHeaders(req *http.Request) {
+    req.Header.Set("User-Agent", "MyWikiBot/1.0 (https://github.com/colest470/automatic-fiesta; markronga@gmail.com)")
+    
+    req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+    req.Header.Set("Accept-Language", "en-US,en;q=0.5")
 }
 
 // package handlers

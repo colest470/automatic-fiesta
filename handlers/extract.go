@@ -2,6 +2,7 @@ package handlers
 
 import (
 	// "bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -87,8 +88,10 @@ func ExtractLinks(urlString string) (bool, error) {
 		fmt.Printf("Checking app link: %s\n", item.Link)
 		
 		if !SkipAppLinks(item.Link) {
+			ctx := context.Background()
+
 			fmt.Printf("Found non-app link: %s\n", item.Link)
-			pageContent, err := TraversePageContent(item.Link)
+			pageContent, err := TraversePageContent(ctx, item.Link)
 			if err != nil {
 				log.Fatalf("Error reading link")
 			}
@@ -96,7 +99,7 @@ func ExtractLinks(urlString string) (bool, error) {
 
 			ResultContent = Crawl(pageContent)
 			
-			fmt.Println("Final result is", ResultContent)
+			fmt.Println("Final result is", ResultContent[:2000])
 		} else {
 			fmt.Printf("Skipping app link: %s\n", item.Link) // skip then go next link which i cant see in the slice
 		}
