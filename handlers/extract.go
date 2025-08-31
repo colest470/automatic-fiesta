@@ -31,6 +31,7 @@ var ValidLinks []string
 
 func ExtractLinks(urlString string) (bool, error) {
 	fmt.Println("Fetching...", urlString)
+	fmt.Printf("\n")
 
 	resp, err := http.Get(urlString)
 	if err != nil {
@@ -58,7 +59,6 @@ func ExtractLinks(urlString string) (bool, error) {
 
 	fmt.Println("Link", urlString, "valid and can be crawled")
 
-	// Render HTML (optional - for debugging)
 	// var buf bytes.Buffer
 	// html.Render(&buf, doc)
 	// fmt.Println("HTML content:", buf.String())
@@ -91,6 +91,7 @@ func ExtractLinks(urlString string) (bool, error) {
 			ctx := context.Background()
 
 			fmt.Printf("Found non-app link: %s\n", item.Link)
+			fmt.Printf("\n")
 			pageContent, err := TraversePageContent(ctx, item.Link)
 			if err != nil {
 				log.Fatalf("Error reading link")
@@ -98,15 +99,14 @@ func ExtractLinks(urlString string) (bool, error) {
 			ValidLinks = append(ValidLinks, item.Link)
 
 			ResultContent = Crawl(pageContent)
-			
+
+			fmt.Printf("\n")
 			fmt.Println("Final result is", ResultContent[:2000])
 		} else {
 			fmt.Printf("Skipping app link: %s\n", item.Link) // skip then go next link which i cant see in the slice
 		}
 	}
-
 	fmt.Printf("\n\n")
-
 
 	fmt.Println("Google result is:", result)
 	return true, nil

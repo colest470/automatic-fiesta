@@ -2,6 +2,7 @@ package main
 
 import (
 	"crawler/middlewares"
+	
 	"fmt"
 	"log"
 	"os"
@@ -35,8 +36,6 @@ func main() {
 		log.Fatalf("Error: %v", err)
 	}
 
-	//fmt.Println("Successfully fetched contents of first result:")
-	//fmt.Println(contents[:min(1000, len(contents))]) // Print first 1000 chars
 	fmt.Println("Parsed URL is: ", parsedURL)
 }
 
